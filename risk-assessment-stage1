@@ -1,0 +1,65 @@
+# Set working drive to wherever file is (see query)
+setwd("R:/DIAS_Detail/budget_data")
+# read csv file with all open awards and their corresponding totals for each budget category
+budg <- read.csv("12-29-2015_Open_Awds_Budg_Data2.csv")
+names(budg) <- c("awd_id","inst_id","awd_istr_code", "awd_eff_date","dd_rcom_date", 
+                 "duns_id", "perf_org_type_code","tot_budg_dol", "tot_sr_dol",
+                 "tot_pdoc_dol", "tot_oth_prof_dol", "tot_grad_dols", "tot_un_grad_dol",
+                 "tot_sec_pers_dol", "tot_oth_pers_dol", "tot_frin_bnft_dol", "tot_equp_cst_dol",
+                 "tot_dom_trav_dol", "tot_frgn_trav_dol", "tot_part_dol", "tot_matl_dol", "tot_pub_dol",
+                 "tot_cnsl_dol", "tot_cptr_serv_dol", "tot_sub_ctr_dol", "tot_oth_drct_cst_dol",
+                 "tot_idir_cst_dol", "tot_rsid_dol", "tot_smal_bus_fee_dol", "tot_cst_shar_dol",
+                 "tot_part_sup_cst_stip_dol", "tot_part_supp_cst_trav_dol", "tot_part_sup_cst_subs_dol",
+                 "tot_part_sup_cst_oth_dol")
+# format  variables
+budg[['awd_eff_date']] <- as.POSIXct(budg[['awd_eff_date']], format="%Y-%m-%d", tz="")
+budg[['dd_rcom_date']] <- as.POSIXct(budg[['dd_rcom_date']], format="%Y-%m-%d", tz="")
+budg[['dd_rcom_mnth']] <- as.factor(format(budg[['dd_rcom_date']],
+                                 format="%m"))
+budg[['dd_rcom_yr']] <- as.factor(format(budg[['dd_rcom_date']], format = "%Y"))
+table(budg[['dd_rcom_yr']])
+# add columns that total participant support and travel amounts 
+budg$tot_part_sup_cst <- budg[,31]+budg[,32]+budg[,33]+budg[,34] # reference columns by number
+budg$tot_travel_dol <- budg$tot_dom_trav_dol + budg$tot_frgn_trav_dol # reference columns by name
+# remove fellowship, BOA/Taskorder, IPA, and Personell type award instrument codes
+library(dplyr)
+budg <- droplevels(subset(budg, budg$awd_istr_code != "'7'" & 
+                 budg$awd_istr_code !="'8'" &
+                 budg$awd_istr_code != "'9'"&
+                 budg$awd_istr_code != "'P'"))
+
+budg$instrument <- ifelse(budg$awd_istr_code =="'0'" | budg$awd_istr_code == "'2'", "Grant",
+                    ifelse(budg$awd_istr_code == "'3'" | budg$awd_istr_code == "'4'"|
+                           budg$awd_istr_code =="'C'", "CSA",
+                           "Standard CA"))
+# add columns for percent of budget for each budget category
+for(i in seq(9,length((names(budg))))){
+  if(substr(names(budg)[i],1,3)=="tot"){
+  colName <- paste("perc_",names(budg)[i], sep="")
+  budg[,colName] <- ifelse(budg[,8]==0, 0, budg[,i]/budg[,8])
+  }
+}
+summary(budg[,'perc_tot_cst_shar_dol'])
+# add column with corresponding risk points for each budget category
+budgRisks <- c("tot_cst_shar_dol", "tot_travel_dol", "tot_cnsl_dol","tot_sub_ctr_dol",
+          "tot_part_sup_cst", "tot_equp_cst_dol")
+riskThresholds <- list()
+for(r in budgRisks){
+  ifelse(r == "tot_part_sup_cst", riskThresholds[[r]] <- c(0,50000,200000,300000,500000),
+         ifelse(r=="tot_equp_cst_dol", riskThresholds[[r]] <- c(0,50000,200000,300000,500000),
+        riskThresholds[[r]] <- c(0,100000,500000,2000000,5000000)))
+  
+  n <- paste0("rsk_pts", substr(r, 4,(nchar(r)-4)))
+  budg[[n]] <-as.factor( 
+    ifelse(budg[[r]] == riskThresholds[[r]][1] , 0,
+                      ifelse(budg[[r]] <= riskThresholds[[r]][2], 1,
+                             ifelse(budg[[r]] > riskThresholds[[r]][2] & budg[[r]] <= riskThresholds[[r]][3], 2,
+                                    ifelse(budg[[r]] > riskThresholds[[r]][3] & budg[[r]] <= riskThresholds[[r]][4], 3,
+                                           ifelse(budg[[r]] > riskThresholds[[r]][4] & budg[[r]] <= riskThresholds[[r]][5], 4,
+                                                  5))))) 
+    )
+}
+# Add risk points for time of award 
+budg$rsk_pts_dd_rcom_mth <- ifelse(budg$dd_rcom_yr == "2015" &
+                                          (budg$dd_rcom_mnth == "07" | budg$dd_rcom_mnth == "08"),
+                                        5, 0)
