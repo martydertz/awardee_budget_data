@@ -1,5 +1,5 @@
 # Set working drive to wherever file is (see query)
-setwd("R:/DIAS_Detail/budget_data")
+setwd(".../budget_data")
 # read csv file with all open awards and their corresponding totals for each budget category
 budg <- read.csv("12-29-2015_Open_Awds_Budg_Data2.csv")
 names(budg) <- c("awd_id","inst_id","awd_istr_code", "awd_eff_date","dd_rcom_date", 
