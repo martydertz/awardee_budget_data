@@ -1,5 +1,5 @@
 # awardee_budget_data
-NSF's awardees submits yearly budget data. The Office of Budget, Finance and Award Management aggregates that budget data for each award by line item in order to perform its annual risk assessment of all awardees. 
+NSF's awardees submits annual budget data. The Office of Budget, Finance and Award Management aggregates that budget data for each award by line item in order to perform its annual risk assessment which assigns a risk rating first to all awardees then to all institutions with NSF awards. 
 
 The analysis proceeeds in the following steps
 
